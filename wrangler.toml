@@ -8,6 +8,12 @@ compatibility_date = "2026-05-03"
 binding = "img_url"
 id = "3168e827d4d94a019d3887d914b7f8fd"
 
-# 注意:环境变量(TG_Chat_ID / CUSTOM_BOT_API_URL / BASIC_USER)与
-# Secrets(TG_Bot_Token / BASIC_PASS)在 Cloudflare 后台配置,
-# 刻意不写入本文件——本仓库是公开仓库,反代地址含密钥前缀,不能入库。
+[vars]
+# 频道 ID 与反代地址;反代 Worker 已启用 BOT_ID_ALLOWLIST 白名单,
+# 仅放行本项目的 bot,因此该地址含密钥前缀也可随公开仓库分发
+TG_Chat_ID = "-1004442931304"
+CUSTOM_BOT_API_URL = "https://kvault-tg-proxy.2702577921.workers.dev/kvpx_7f3a9c2e51b84d06af1e"
+BASIC_USER = "admin"
+
+# 注意:Secrets(TG_Bot_Token / BASIC_PASS)不写入本文件,
+# 在 Cloudflare 后台或 wrangler pages secret put 配置,密钥不会进仓库。
