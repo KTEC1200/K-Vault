@@ -1,0 +1,12 @@
+name = "k-vault"
+pages_build_output_dir = "."
+compatibility_date = "2026-05-03"
+
+# Git 集成部署:绑定图片元数据 KV(namespace 已存在,勿删)
+[[kv_namespaces]]
+binding = "img_url"
+id = "3168e827d4d94a019d3887d914b7f8fd"
+
+# 注意:环境变量(TG_Chat_ID / CUSTOM_BOT_API_URL / BASIC_USER)与
+# Secrets(TG_Bot_Token / BASIC_PASS)在 Cloudflare 后台配置,
+# 刻意不写入本文件——本仓库是公开仓库,反代地址含密钥前缀,不能入库。
