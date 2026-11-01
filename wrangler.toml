@@ -3,6 +3,7 @@ pages_build_output_dir = "."
 compatibility_date = "2026-05-03"
 
 # Git 集成部署:绑定图片元数据 KV(namespace 已存在,勿删)
+# 2026-11-01 已切换为 Git 集成,push 到 main 自动部署
 [[kv_namespaces]]
 binding = "img_url"
 id = "3168e827d4d94a019d3887d914b7f8fd"
