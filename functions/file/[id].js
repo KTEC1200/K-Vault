@@ -333,10 +333,13 @@ async function handleTelegramFile(context, fileId, record = null) {
   const fetchHeaders = new Headers();
   if (rangeHeader) fetchHeaders.set('Range', rangeHeader);
 
+  // 全量 GET 的图片回源走 CDN 缓存(分层共享,跨机房命中),补齐 Cache API 的单机房局限
   const upstream = await fetch(buildTelegramFileUrl(env, filePath), {
     method: request.method === 'HEAD' ? 'HEAD' : 'GET',
     headers: fetchHeaders,
-    cf: { cacheTtl: 0, cacheEverything: false },
+    cf: edgeCacheable
+      ? { cacheEverything: true, cacheTtl: 2592000 }
+      : { cacheTtl: 0, cacheEverything: false },
   });
 
   if (!upstream.ok && upstream.status !== 206) {
@@ -388,10 +391,13 @@ async function handleSignedTelegramFile(context, signedMeta) {
   const fetchHeaders = new Headers();
   if (rangeHeader) fetchHeaders.set('Range', rangeHeader);
 
+  // 全量 GET 的图片回源走 CDN 缓存(分层共享,跨机房命中),补齐 Cache API 的单机房局限
   const upstream = await fetch(buildTelegramFileUrl(env, filePath), {
     method: request.method === 'HEAD' ? 'HEAD' : 'GET',
     headers: fetchHeaders,
-    cf: { cacheTtl: 0, cacheEverything: false },
+    cf: edgeCacheable
+      ? { cacheEverything: true, cacheTtl: 2592000 }
+      : { cacheTtl: 0, cacheEverything: false },
   });
 
   if (!upstream.ok && upstream.status !== 206) {
@@ -780,7 +786,11 @@ async function findRecordByPrefixes(env, fileId, prefixes = []) {
 async function getTelegramFilePath(env, fileId) {
   try {
     const url = `${buildTelegramBotApiUrl(env, 'getFile')}?file_id=${encodeURIComponent(fileId)}`;
-    const response = await fetch(url, { method: 'GET' });
+    // getFile 结果按 file_id 不可变:边缘缓存 10 分钟,减少一次 TG API 往返
+    const response = await fetch(url, {
+      method: 'GET',
+      cf: { cacheEverything: true, cacheTtl: 600 },
+    });
     if (!response.ok) return null;
 
     const data = await response.json();
