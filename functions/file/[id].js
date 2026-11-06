@@ -314,13 +314,22 @@ async function handleTelegramFile(context, fileId, record = null) {
   const fileName = metadata.fileName || fileId;
   const mimeType = getMimeType(fileName);
 
+  // 边缘缓存:GET 全量请求且非密码分享时优先命中 CF 边缘副本,
+  // 避免每次浏览都跨洋回源 Telegram(图片按 URL 不可变,可长缓存)
+  const rangeHeader = request.headers.get('Range');
+  const edgeCacheable = request.method === 'GET' && !rangeHeader && !metadata.sharePasswordHash;
+  const edgeCache = caches.default;
+  if (edgeCacheable) {
+    const hit = await edgeCache.match(new Request(request.url));
+    if (hit) return hit;
+  }
+
   const telegramFileId = String(fileId).split('.')[0];
   const filePath = await getTelegramFilePath(env, telegramFileId);
   if (!filePath) {
     return errorResponse('Failed to get file path from Telegram', 500);
   }
 
-  const rangeHeader = request.headers.get('Range');
   const fetchHeaders = new Headers();
   if (rangeHeader) fetchHeaders.set('Range', rangeHeader);
 
@@ -336,6 +345,17 @@ async function handleTelegramFile(context, fileId, record = null) {
 
   const headers = new Headers();
   addResponseHeaders(headers, fileName, mimeType, upstream);
+
+  if (edgeCacheable && upstream.status === 200 && String(mimeType).startsWith('image/')) {
+    headers.set('Cache-Control', 'public, max-age=2592000');
+    const finalResponse = new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers,
+    });
+    context.waitUntil(edgeCache.put(new Request(request.url), finalResponse.clone()));
+    return finalResponse;
+  }
 
   return new Response(upstream.body, {
     status: upstream.status,
@@ -347,6 +367,14 @@ async function handleTelegramFile(context, fileId, record = null) {
 async function handleSignedTelegramFile(context, signedMeta) {
   const { request, env } = context;
 
+  const rangeHeader = request.headers.get('Range');
+  const edgeCacheable = request.method === 'GET' && !rangeHeader;
+  const edgeCache = caches.default;
+  if (edgeCacheable) {
+    const hit = await edgeCache.match(new Request(request.url));
+    if (hit) return hit;
+  }
+
   const filePath = await getTelegramFilePath(env, signedMeta.fileId);
   if (!filePath) {
     return errorResponse('Failed to get file path from Telegram', 500);
@@ -357,7 +385,6 @@ async function handleSignedTelegramFile(context, signedMeta) {
   const fileName = signedMeta.fileName || `${signedMeta.fileId}.${signedMeta.fileExtension || 'bin'}`;
   const mimeType = signedMeta.mimeType || getMimeType(fileName);
 
-  const rangeHeader = request.headers.get('Range');
   const fetchHeaders = new Headers();
   if (rangeHeader) fetchHeaders.set('Range', rangeHeader);
 
@@ -373,6 +400,17 @@ async function handleSignedTelegramFile(context, signedMeta) {
 
   const headers = new Headers();
   addResponseHeaders(headers, fileName, mimeType, upstream);
+
+  if (edgeCacheable && upstream.status === 200 && String(mimeType).startsWith('image/')) {
+    headers.set('Cache-Control', 'public, max-age=2592000');
+    const finalResponse = new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers,
+    });
+    context.waitUntil(edgeCache.put(new Request(request.url), finalResponse.clone()));
+    return finalResponse;
+  }
 
   return new Response(upstream.body, {
     status: upstream.status,
